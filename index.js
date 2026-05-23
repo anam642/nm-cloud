@@ -11,34 +11,39 @@ const WORKER_URL = process.env.WORKER_URL;
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-// server check
 app.get("/", (req, res) => {
-    res.send("Bot is running");
+    res.send("Bot running");
 });
 
-app.listen(PORT, () => {
-    console.log("Server running on", PORT);
-});
+app.listen(PORT);
 
-// /start command
-bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id, "Send me a video to get download link.");
-});
+// ANY file handler (VERY IMPORTANT)
+bot.on("message", async (msg) => {
 
-// video handler
-bot.on("video", async (msg) => {
+    const fileId =
+        msg.video?.file_id ||
+        msg.document?.file_id ||
+        msg.audio?.file_id;
+
+    if (!fileId) {
+        return; // ignore text like "hello"
+    }
+
     try {
-        const fileId = msg.video.file_id;
 
         const file = await bot.getFile(fileId);
         const filePath = file.file_path;
 
+        if (!filePath) {
+            return bot.sendMessage(msg.chat.id, "❌ file_path not found");
+        }
+
         const link = `${WORKER_URL}?file=${encodeURIComponent(filePath)}`;
 
-        bot.sendMessage(msg.chat.id, "Download Link:\n" + link);
+        bot.sendMessage(msg.chat.id, `✅ Download Link:\n${link}`);
 
     } catch (err) {
         console.log(err);
-        bot.sendMessage(msg.chat.id, "Error generating link");
+        bot.sendMessage(msg.chat.id, "❌ Error generating link");
     }
 });
